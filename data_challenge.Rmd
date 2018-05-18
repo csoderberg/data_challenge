@@ -18,14 +18,35 @@ data
 #regular and overtime pay are characters and in accounting notation, so change to numeric
 data <- data %>%
   mutate(REGULAR = str_replace_all(REGULAR, "[$,)]", ""), OVERTIME = str_replace_all(OVERTIME, "[$,)]", "")) %>%
-  mutate(REGULAR = as.numeric(str_replace(REGULAR, "[(]", "-")), OVERTIME = as.numeric(str_replace(OVERTIME, "[(]", "-")))
+  mutate(REGULAR = as.numeric(str_replace(REGULAR, "[(]", "-")), OVERTIME = as.numeric(str_replace(OVERTIME, "[(]", "-"))) %>%
+  mutate(TITLE = as.factor(TITLE), `DEPARTMENT NAME` = as.factor(`DEPARTMENT NAME`))
 
 data
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+```{r}
+##determine departments with most regular and overtime pay
+pay_by_dept <- data %>%
+                  group_by(`DEPARTMENT NAME`) %>%
+                  summarize(tot_regular = sum(REGULAR, na.rm = T), tot_overtime = sum(OVERTIME, na.rm = T)) %>%
+                  arrange(desc(tot_regular))
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+pay_by_dept
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+##select only police dpt data
+data_police <- data %>%
+                filter(`DEPARTMENT NAME` == 'Boston Police Department')
+```
+
+```{r}
+#create hourly rates and OT hours, assuming 40 work week, 52 weeks per year, 1.5 pay for OT
+data_police <- data_police %>%
+                  mutate(hourly_rate = REGULAR/(40*52), hours_overtime = OVERTIME/(hourly_rate*1.5))
+
+#Minimum wage in MA is $11, so exclude those with hourly rates less than $11 (likely either part time or mid-year hires, making hours of overtime worked incorrect)
+data_police <- data_police %>%
+                  filter(hourly_rate >= 11)
+```
+
+
 

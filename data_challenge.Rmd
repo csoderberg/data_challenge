@@ -49,4 +49,31 @@ data_police <- data_police %>%
 ```
 
 
+```{r}
+##Number of employees per job with over average 20 hours of overtime a week
+hours_by_title <- data_police %>%
+                      group_by(TITLE) %>%
+                      filter(hours_overtime >= (40*20)) %>%
+                      summarize(n = n(), total_hours = sum(hours_overtime), total_overtime_pay = sum(OVERTIME))
+
+##number of employees required to cover those hours
+hours_by_title <- hours_by_title %>%
+                      mutate(new_employees = floor(total_hours/(52*40)), leftover_hours = total_hours - new_employees*(52*40)) %>%
+                      filter(n > 1)
+
+##median salary of employees by title
+median_salaries <- data_police %>%
+                      group_by(TITLE) %>%
+                      summarize(median_salary = median(REGULAR))
+
+##join tibbles
+hours_by_title <- inner_join(hours_by_title, median_salaries, by = 'TITLE')
+
+##calculate pay saving
+hours_by_title <- hours_by_title %>%
+                    mutate(pay_savings = total_overtime_pay - median_salary*new_employees - leftover_hours*(median_salary/2080))
+
+total_savings <- sum(hours_by_title[['pay_savings']])
+```
+
 

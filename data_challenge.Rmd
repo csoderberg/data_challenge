@@ -1,0 +1,31 @@
+---
+title: "Could Boston Reduce Police Payroll Through Additional Hires?"
+output: html_notebook
+---
+
+```{r warning = FALSE, echo = FALSE, results = 'hide', message = FALSE}
+#loading libraries
+library(tidyverse)
+
+#load in data
+data <- read_csv('https://data.boston.gov/dataset/418983dc-7cae-42bb-88e4-d56f5adcf869/resource/70129b87-bd4e-49bb-aa09-77644da73503/download/employee-earnings-report-2017.csv', col_names = T)
+
+#retain only columns needed for analyses
+data <- data %>%
+          select(`DEPARTMENT NAME`, TITLE, REGULAR, OVERTIME)
+data
+
+#regular and overtime pay are characters and in accounting notation, so change to numeric
+data <- data %>%
+  mutate(REGULAR = str_replace_all(REGULAR, "[$,)]", ""), OVERTIME = str_replace_all(OVERTIME, "[$,)]", "")) %>%
+  mutate(REGULAR = as.numeric(str_replace(REGULAR, "[(]", "-")), OVERTIME = as.numeric(str_replace(OVERTIME, "[(]", "-")))
+
+data
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+

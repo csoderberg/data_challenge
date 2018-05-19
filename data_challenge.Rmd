@@ -19,26 +19,43 @@ data
 data <- data %>%
   mutate(REGULAR = str_replace_all(REGULAR, "[$,)]", ""), OVERTIME = str_replace_all(OVERTIME, "[$,)]", "")) %>%
   mutate(REGULAR = as.numeric(str_replace(REGULAR, "[(]", "-")), OVERTIME = as.numeric(str_replace(OVERTIME, "[(]", "-"))) %>%
-  mutate(TITLE = as.factor(TITLE), `DEPARTMENT NAME` = as.factor(`DEPARTMENT NAME`))
+  mutate(TITLE = as.factor(TITLE), `DEPARTMENT NAME` = as.factor(`DEPARTMENT NAME`)) %>%
+  rename(dept_name = `DEPARTMENT NAME`)
 
 data
 ```
 
 ```{r}
-##determine departments with most regular and overtime pay
+##calculate total regular and OT pay
+total_payroll <- sum(data['REGULAR'], na.rm = T)
+total_overtime <- sum(data['OVERTIME'], na.rm = T)
+  
+##calculate regular and OT pay (and percentage) for each department
 pay_by_dept <- data %>%
-                  group_by(`DEPARTMENT NAME`) %>%
-                  summarize(tot_regular = sum(REGULAR, na.rm = T), tot_overtime = sum(OVERTIME, na.rm = T)) %>%
-                  arrange(desc(tot_regular))
+                  group_by(dept_name) %>%
+                  summarize(tot_regular = sum(REGULAR, na.rm = T), percent_regular = round(100*(tot_regular/total_payroll),2), tot_overtime = sum(OVERTIME, na.rm = T), percent_overtime = round(100*(tot_overtime/total_overtime),2))
 
-pay_by_dept
+#put data into long form for graphing
+pay_percentages <- pay_by_dept %>%
+                      select(dept_name, percent_regular, percent_overtime) %>%
+                      filter(percent_overtime >= 1) %>%
+                      gather(key = percent, values = c('percent_regular', 'percent_overtime'))
+
+
+ggplot(data = pay_percentages, aes(x = dept_name, y = value, fill = factor(percent, labels = c('Overtime', 'Regular')))) +
+  geom_bar(stat = 'identity', position = position_dodge()) +
+  labs(y = 'Percentage', title = 'Percentage of Regular and Overtime Pay by Department', fill = 'Pay Type') +
+  theme(axis.title.y = element_blank()) +
+  scale_fill_brewer(palette="Paired")+
+  coord_flip() 
+
 
 ##select only police dpt data
 data_police <- data %>%
-                filter(`DEPARTMENT NAME` == 'Boston Police Department')
+                filter(dept_name == 'Boston Police Department')
 ```
 
-```{r}
+```{r  warning = FALSE}
 #create hourly rates and OT hours, assuming 40 work week, 52 weeks per year, 1.5 pay for OT
 data_police <- data_police %>%
                   mutate(hourly_rate = REGULAR/(40*52), hours_overtime = OVERTIME/(hourly_rate*1.5))
@@ -46,6 +63,21 @@ data_police <- data_police %>%
 #Minimum wage in MA is $11, so exclude those with hourly rates less than $11 (likely either part time or mid-year hires, making hours of overtime worked incorrect)
 data_police <- data_police %>%
                   filter(hourly_rate >= 11)
+
+##determine the 
+top4OTpositions <- (data_police %>%
+                      group_by(TITLE) %>%
+                      summarize(number_employees = n(), total_OT_hours = sum(hours_overtime, na.rm = T), total_overtime_pay = sum(OVERTIME, na.rm = T)) %>%
+                      top_n(4, wt = total_OT_hours) %>%
+                      select(TITLE))[[1]]
+
+top4OT_data <- data_police %>%
+                  filter(TITLE %in% top4OTpositions)
+
+ggplot(top4OT_data, aes(x = hours_overtime, color = TITLE)) +
+  geom_density() +
+  labs(title = 'Overtime Hours Density Curve for \n Positions with Most Overtime', x = 'Overtime Hours', y = 'Density', color = 'Job') +
+  theme(plot.title = element_text(hjust=0.5))
 ```
 
 
@@ -53,7 +85,7 @@ data_police <- data_police %>%
 ##Number of employees per job with over average 20 hours of overtime a week
 hours_by_title <- data_police %>%
                       group_by(TITLE) %>%
-                      filter(hours_overtime >= (40*20)) %>%
+                      filter(hours_overtime >= (52*20)) %>%
                       summarize(n = n(), total_hours = sum(hours_overtime), total_overtime_pay = sum(OVERTIME))
 
 ##number of employees required to cover those hours
@@ -71,7 +103,7 @@ hours_by_title <- inner_join(hours_by_title, median_salaries, by = 'TITLE')
 
 ##calculate pay saving
 hours_by_title <- hours_by_title %>%
-                    mutate(pay_savings = total_overtime_pay - median_salary*new_employees - leftover_hours*(median_salary/2080))
+                    mutate(pay_savings = total_overtime_pay - median_salary*new_employees - leftover_hours*(1.5*median_salary/2080))
 
 total_savings <- sum(hours_by_title[['pay_savings']])
 ```

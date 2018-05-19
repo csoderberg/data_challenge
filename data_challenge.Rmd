@@ -1,11 +1,15 @@
 ---
 title: "Could Boston Reduce Police Payroll Through Additional Hires?"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r warning = FALSE, echo = FALSE, results = 'hide', message = FALSE}
 #loading libraries
 library(tidyverse)
+library(knitr)
+library(kableExtra)
 
 #load in data
 data <- read_csv('https://data.boston.gov/dataset/418983dc-7cae-42bb-88e4-d56f5adcf869/resource/70129b87-bd4e-49bb-aa09-77644da73503/download/employee-earnings-report-2017.csv', col_names = T)
@@ -104,6 +108,17 @@ hours_by_title <- inner_join(hours_by_title, median_salaries, by = 'TITLE')
 ##calculate pay saving
 hours_by_title <- hours_by_title %>%
                     mutate(pay_savings = total_overtime_pay - median_salary*new_employees - leftover_hours*(1.5*median_salary/2080))
+
+savings_table <- hours_by_title %>%
+                    select(TITLE, new_employees, pay_savings) %>%
+                    arrange(desc(pay_savings))
+
+#table of jobs to add and savings
+kable(savings_table,
+      caption = 'Suggested New Hires and Estimates Cost Savings',
+      format = 'html',
+      col.names = c('Job', 'Number of New Hires', 'Estimates Pay Savings')) %>%
+  kable_styling(bootstrap_options = 'striped', full_width = F)
 
 total_savings <- sum(hours_by_title[['pay_savings']])
 ```

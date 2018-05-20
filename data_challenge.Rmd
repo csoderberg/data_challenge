@@ -3,7 +3,12 @@ title: "Could Boston Reduce Police Payroll Through Additional Hires?"
 output:
   html_document:
     df_print: paged
+  pdf_document: default
 ---
+
+Cities are tasked with providing a broad range of services to their residents within fixed yearly budgets. City services are funded by public tax money, and so budgets are often highly scrutinized to determine whether the city is using the tax money as efficiently as possible. Over the years, one area of city budgets that has consistently received attention is employement figures, in particular the number of employees and overtime pay. 
+
+This report provides an initial investigation into the overtime pay in the city of Boston in 2017, using Boston's publically available pay records. While some amount of overtime is to be expected in any city, large amounts of overtime may indicate that departments/positions within the city are understaffed. Overtime pay is more expensive than regular pay, and so cutting overtime and redirecting the work to new full time staff may help to reduce the overall payroll budget, allowing the city to more efficiently use it's budgitary resources to provide needed city services.
 
 ```{r warning = FALSE, echo = FALSE, results = 'hide', message = FALSE}
 #loading libraries
@@ -17,17 +22,16 @@ data <- read_csv('https://data.boston.gov/dataset/418983dc-7cae-42bb-88e4-d56f5a
 #retain only columns needed for analyses
 data <- data %>%
           select(`DEPARTMENT NAME`, TITLE, REGULAR, OVERTIME)
-data
 
-#regular and overtime pay are characters and in accounting notation, so change to numeric
+#change regular and overtime from character accounting notation into numeric
 data <- data %>%
   mutate(REGULAR = str_replace_all(REGULAR, "[$,)]", ""), OVERTIME = str_replace_all(OVERTIME, "[$,)]", "")) %>%
   mutate(REGULAR = as.numeric(str_replace(REGULAR, "[(]", "-")), OVERTIME = as.numeric(str_replace(OVERTIME, "[(]", "-"))) %>%
   mutate(TITLE = as.factor(TITLE), `DEPARTMENT NAME` = as.factor(`DEPARTMENT NAME`)) %>%
   rename(dept_name = `DEPARTMENT NAME`)
 
-data
 ```
+
 
 ```{r}
 ##calculate total regular and OT pay
@@ -45,7 +49,15 @@ pay_percentages <- pay_by_dept %>%
                       filter(percent_overtime >= 1) %>%
                       gather(key = percent, values = c('percent_regular', 'percent_overtime'))
 
+police_percent_pay <- pay_by_dept %>% filter(dept_name == 'Police Department') %>% select(percent_regular)
+police_percent_ot <- pay_by_dept %>% filter(dept_name == 'Police Department') %>% select(percent_overtime)
+police_ot <- pay_by_dept %>% filter(dept_name == 'Police Department') %>% select(tot_overtime)
 
+```
+
+A thorough analysis of overtime in all city departments in Boston is outside the scope of this report. I will focus in on the department with the largest proportion of overtime, as that likely has the highest potential cost savings. The graph below shows the proportion of the total regular payroll and total overtime payrolll for departments with at least 1% of the overtime payroll. The Police Department (PD), has the highest proportion of the regular payroll (`r police_percent_pay`%), and by far the highest percent of overtime (`r police_percent_ot`%). In total, in 2017 the PD spent $`r police_ot` on overtime pay.
+
+```{r}
 ggplot(data = pay_percentages, aes(x = dept_name, y = value, fill = factor(percent, labels = c('Overtime', 'Regular')))) +
   geom_bar(stat = 'identity', position = position_dodge()) +
   labs(y = 'Percentage', title = 'Percentage of Regular and Overtime Pay by Department', fill = 'Pay Type') +
@@ -53,13 +65,12 @@ ggplot(data = pay_percentages, aes(x = dept_name, y = value, fill = factor(perce
   scale_fill_brewer(palette="Paired")+
   coord_flip() 
 
-
 ##select only police dpt data
 data_police <- data %>%
                 filter(dept_name == 'Boston Police Department')
 ```
 
-```{r  warning = FALSE}
+```{r}
 #create hourly rates and OT hours, assuming 40 work week, 52 weeks per year, 1.5 pay for OT
 data_police <- data_police %>%
                   mutate(hourly_rate = REGULAR/(40*52), hours_overtime = OVERTIME/(hourly_rate*1.5))
@@ -68,6 +79,15 @@ data_police <- data_police %>%
 data_police <- data_police %>%
                   filter(hourly_rate >= 11)
 
+```
+
+The remainder of this report will focus on the potential cost savings of transitioning some overtime to new hires in the PD. A first step is to determine the hours of overtime worked by those in the PD. The  data does not include hourly rates or hours worked, just the annual pay (REGULAR) and overtime pay (OVERTIME) for the year. To create these variables, I have assumed all employees have an hourly rate that is equal to their annual salary, divided by a forty hour work week completed 52 weeks per year. I used these estimates to calculate the overtime hours from the total overtime pay (assuming a 1.5 hourly rate for overtime). Some employees of the police department may be part time, or have been hired later than January 1, meaning that this assumed 2080 hour work year would underestimate their hourly rate, and therefore overestimate their overtime hours. The current data does not allow me to identity all such employees. However, given that the minimum wage in Massacheusetts is $11, I can exclude employees from the calculations who appear to have lower than $11 hourly wages. This leaves an estimate of `r sum(data_police[[hours_overtime]])` hours of overtime worked across the whole PD. 
+
+The high estimate may indicate that the police department is severly understaffed. However, not all overtime can be pooled an assigned to new employees; in some cases one employee working 40 hours a week is not equal to 10 employees putting in 4 overtime hours in a week. For example, if a large number of officers are needed to work a few hours of overtime to staff a parade or a protest, hiring a new officer in an attempt to shift some of that overtime to regular pay would likely be ineffective, since many officers would still be needed to staff the parade. Therefore, the total overtime is less informative than the distribution of overtime: smaller total overtime hours per person may represent tasks that could less consistently pooled handed off to one new hire, whereas much larger overtime rates may indicate a body of work that could be handled by one additional person.
+
+The graph below shows the density of overtime hour estimates for the four jobs within the Police Department that had the highest amount of overtime.
+
+```{r warning = FALSE}
 ##determine the 
 top4OTpositions <- (data_police %>%
                       group_by(TITLE) %>%
@@ -84,6 +104,9 @@ ggplot(top4OT_data, aes(x = hours_overtime, color = TITLE)) +
   theme(plot.title = element_text(hjust=0.5))
 ```
 
+The graph shows that for Police Officers and Police Sergeants, that vast majority of those doing overtime work are working a relatively small number of hours. While Police Detectives and Detective Sergeants generally show higher rates of overtime, for all four jobs, the majority of employees are working an average of less than 20 hours of overtime a week. To make conservative estimates of cost savings, I will take this average of 20 hours per week of overtime (equaling 1040 hours total a year) as a break point between overtime work that is consistent and substantial enough so that it could be combined with other overtime hours and given to a new hire as consistent job responsibilities. 
+
+For each job within the PD, I have calculated the total hours of overtime worked by those who worked more than 1040 hours of overtime each. I then took these totals and divided them by 40 to determine the total number of new empoyees at each position that would be needed to cover the overtime. I determined cost savings by assuming the new employees would make the median salary for that position. The table below shows the breakdown by position.
 
 ```{r}
 ##Number of employees per job with over average 20 hours of overtime a week
@@ -116,11 +139,15 @@ savings_table <- hours_by_title %>%
 #table of jobs to add and savings
 kable(savings_table,
       caption = 'Suggested New Hires and Estimates Cost Savings',
-      format = 'html',
-      col.names = c('Job', 'Number of New Hires', 'Estimates Pay Savings')) %>%
-  kable_styling(bootstrap_options = 'striped', full_width = F)
+      col.names = c('Job', 'Number of New Hires', 'Estimates Pay Savings'))
 
 total_savings <- sum(hours_by_title[['pay_savings']])
 ```
+
+In total, the estimated costs saving is approximately $3.5 million dollars, though this does not take into account the additional costs incured through benefits backages for new employees that are not included in the regular pay numbers. 
+
+Though this initial analyses shows some promising data around new hires leading to city payroll cuts, the city should use these results as a starting point to investigate overtime pay more thoroughly before inacting the hiring recommendations. With more fine grained data and additional time, there are a few different analyses that would provide a more thorough picture. First, if the city has digitalized records about the true overtime hours worked for each employee, these data would provide more accurate numbers than the estimates I created for this initial analyses. Second, I made an assumption in this analysis about large amounts of overtime being more likely to be transferable to new hires. If more detailed city records existed around the reasons for employee overtime, this would allow for a deeper analysis into the most likely reasons for overtime which might allow for more definitive decisions about which overtime could be pooled into hours for a new employee. Finally, I only conducted the analysis on the payroll data from 2017. The number of city employees, their pay, and overtime rates will fluctuate from year to year. In a further analysis, I would be conduct a longitudinal analysis of relationship between the number of employees and overtime hours per employee. If overtime tended to decrease as employees were hired, this may suggest that hiring/promotions is en effective way to decrease overtime spending. 
+
+
 
 

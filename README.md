@@ -1,1 +1,1 @@
-# data_challenge
+This repo contains the RNotebook file and the knitted html output for the data challenge.

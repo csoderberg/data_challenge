@@ -16,6 +16,9 @@ library(tidyverse)
 library(knitr)
 library(kableExtra)
 
+#disable scientific notation
+options(scipen=999)
+
 #load in data
 data <- read_csv('https://data.boston.gov/dataset/418983dc-7cae-42bb-88e4-d56f5adcf869/resource/70129b87-bd4e-49bb-aa09-77644da73503/download/employee-earnings-report-2017.csv', col_names = T)
 
@@ -33,7 +36,7 @@ data <- data %>%
 ```
 
 
-```{r}
+```{r echo = FALSE}
 ##calculate total regular and OT pay
 total_payroll <- sum(data['REGULAR'], na.rm = T)
 total_overtime <- sum(data['OVERTIME'], na.rm = T)
@@ -49,15 +52,15 @@ pay_percentages <- pay_by_dept %>%
                       filter(percent_overtime >= 1) %>%
                       gather(key = percent, values = c('percent_regular', 'percent_overtime'))
 
-police_percent_pay <- pay_by_dept %>% filter(dept_name == 'Police Department') %>% select(percent_regular)
-police_percent_ot <- pay_by_dept %>% filter(dept_name == 'Police Department') %>% select(percent_overtime)
-police_ot <- pay_by_dept %>% filter(dept_name == 'Police Department') %>% select(tot_overtime)
+police_percent_pay <- (pay_by_dept %>% filter(dept_name == 'Boston Police Department') %>% select(percent_regular))[[1]]
+police_percent_ot <- (pay_by_dept %>% filter(dept_name == 'Boston Police Department') %>% select(percent_overtime))[[1]]
+police_ot <- (pay_by_dept %>% filter(dept_name == 'Boston Police Department') %>% select(tot_overtime))[[1]]
 
 ```
 
 A thorough analysis of overtime in all city departments in Boston is outside the scope of this report. I will focus in on the department with the largest proportion of overtime, as that likely has the highest potential cost savings. The graph below shows the proportion of the total regular payroll and total overtime payrolll for departments with at least 1% of the overtime payroll. The Police Department (PD), has the highest proportion of the regular payroll (`r police_percent_pay`%), and by far the highest percent of overtime (`r police_percent_ot`%). In total, in 2017 the PD spent $`r police_ot` on overtime pay.
 
-```{r}
+```{r echo = FALSE}
 ggplot(data = pay_percentages, aes(x = dept_name, y = value, fill = factor(percent, labels = c('Overtime', 'Regular')))) +
   geom_bar(stat = 'identity', position = position_dodge()) +
   labs(y = 'Percentage', title = 'Percentage of Regular and Overtime Pay by Department', fill = 'Pay Type') +
@@ -70,7 +73,7 @@ data_police <- data %>%
                 filter(dept_name == 'Boston Police Department')
 ```
 
-```{r}
+```{r echo = FALSE}
 #create hourly rates and OT hours, assuming 40 work week, 52 weeks per year, 1.5 pay for OT
 data_police <- data_police %>%
                   mutate(hourly_rate = REGULAR/(40*52), hours_overtime = OVERTIME/(hourly_rate*1.5))
@@ -81,13 +84,13 @@ data_police <- data_police %>%
 
 ```
 
-The remainder of this report will focus on the potential cost savings of transitioning some overtime to new hires in the PD. A first step is to determine the hours of overtime worked by those in the PD. The  data does not include hourly rates or hours worked, just the annual pay (REGULAR) and overtime pay (OVERTIME) for the year. To create these variables, I have assumed all employees have an hourly rate that is equal to their annual salary, divided by a forty hour work week completed 52 weeks per year. I used these estimates to calculate the overtime hours from the total overtime pay (assuming a 1.5 hourly rate for overtime). Some employees of the police department may be part time, or have been hired later than January 1, meaning that this assumed 2080 hour work year would underestimate their hourly rate, and therefore overestimate their overtime hours. The current data does not allow me to identity all such employees. However, given that the minimum wage in Massacheusetts is $11, I can exclude employees from the calculations who appear to have lower than $11 hourly wages. This leaves an estimate of `r sum(data_police[[hours_overtime]])` hours of overtime worked across the whole PD. 
+The remainder of this report will focus on the potential cost savings of transitioning some overtime to new hires in the PD. A first step is to determine the hours of overtime worked by those in the PD. The  data does not include hourly rates or hours worked, just the annual pay (REGULAR) and overtime pay (OVERTIME) for the year. To create these variables, I have assumed all employees have an hourly rate that is equal to their annual salary, divided by a forty hour work week completed 52 weeks per year. I used these estimates to calculate the overtime hours from the total overtime pay (assuming a 1.5 hourly rate for overtime). Some employees of the police department may be part time, or have been hired later than January 1, meaning that this assumed 2080 hour work year would underestimate their hourly rate, and therefore overestimate their overtime hours. The current data does not allow me to identity all such employees. However, given that the minimum wage in Massacheusetts is $11, I can exclude employees from the calculations who appear to have lower than $11 hourly wages. This leaves an estimate of `r round(sum(data_police[['hours_overtime']], na.rm = T))` hours of overtime worked across the whole PD. 
 
 The high estimate may indicate that the police department is severly understaffed. However, not all overtime can be pooled an assigned to new employees; in some cases one employee working 40 hours a week is not equal to 10 employees putting in 4 overtime hours in a week. For example, if a large number of officers are needed to work a few hours of overtime to staff a parade or a protest, hiring a new officer in an attempt to shift some of that overtime to regular pay would likely be ineffective, since many officers would still be needed to staff the parade. Therefore, the total overtime is less informative than the distribution of overtime: smaller total overtime hours per person may represent tasks that could less consistently pooled handed off to one new hire, whereas much larger overtime rates may indicate a body of work that could be handled by one additional person.
 
 The graph below shows the density of overtime hour estimates for the four jobs within the Police Department that had the highest amount of overtime.
 
-```{r warning = FALSE}
+```{r warning = FALSE, echo = FALSE}
 ##determine the 
 top4OTpositions <- (data_police %>%
                       group_by(TITLE) %>%
@@ -108,7 +111,7 @@ The graph shows that for Police Officers and Police Sergeants, that vast majorit
 
 For each job within the PD, I have calculated the total hours of overtime worked by those who worked more than 1040 hours of overtime each. I then took these totals and divided them by 40 to determine the total number of new empoyees at each position that would be needed to cover the overtime. I determined cost savings by assuming the new employees would make the median salary for that position. The table below shows the breakdown by position.
 
-```{r}
+```{r echo = FALSE}
 ##Number of employees per job with over average 20 hours of overtime a week
 hours_by_title <- data_police %>%
                       group_by(TITLE) %>%
